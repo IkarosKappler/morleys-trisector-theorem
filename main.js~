@@ -1,0 +1,148 @@
+/**
+ * Inspiration:
+ *   http://jsfiddle.net/sebastian_derossi/PYxu7/
+ *
+ * @author  Ikaros Kappler
+ * @date    2016-03-12
+ * @version 1.0.0
+ **/
+
+(function($) {
+
+    $( document ).ready( function() {
+
+	var canvasWidth  = 640;
+	var canvasHeight = 480;
+	var origin       = { x : canvasWidth/2.0,
+			     y : canvasHeight/2.0
+			   };
+
+	var tmp = new IKRS.Color();
+	
+	var Point = function(x,y) {
+	    this.x = x;
+	    this.y = y;
+	    
+	    this.clone = function() {
+		return new Point(this.x, this.y);
+	    };
+
+	    this.sub = function( p ) {
+		return new Point( this.x - p.x,
+				  this.y - p.y );
+	    };
+
+	    //this.dot = function
+
+	    this.toString = function() {
+		return "{ x : " + x + ", y : " + y + " }";
+	    };
+	};
+	var Line = function( a, b ) {
+	    this.a = a;
+	    this.b = b;
+	    
+	    this.draw = function( context ) {
+		context.beginPath();
+		context.moveTo( this.a.x, this.a.y );
+		context.lineTo( this.b.x, this.b.y );
+		context.closePath();
+		context.stroke();
+	    };
+
+	    this.length = function() {
+		return Math.sqrt( Math.pow(this.b.x-this.a.x,2) + Math.pow(this.b.y-this.a.y,2) );
+	    };
+
+	    this.sub = function( point ) {
+		return new Line( this.a.sub(point), this.b.sub(point) );
+	    };
+
+	    this.normalize = function() {
+		return new Line( this.a.clone(),
+				 new Point(this.a.x + (this.b.x-this.a.x)/this.length(),
+					   this.a.y + (this.b.y-this.a.y)/this.length())
+			       );
+					   
+	    }; 
+
+	    // Get the angle between this and the passed line (in radians)
+	    this.angle = function( line ) {
+		if( !line )
+		    line = new Line( new Point(0,0), new Point(100,0) );
+		
+		// Compute the angle from x axis and the return the difference :)
+		var v0 = this.b.sub( this.a );
+		var v1 = line.b.sub( line.a );
+		// Thank you, Javascript, for this second atan function. No additional math is needed here!
+		return Math.atan2( v1.x, v1.y ) - Math.atan2( v0.x, v0.y );
+	    };
+
+	    this.toString = function() {
+		return "{ a : " + this.a.toString() + ", b : " + this.b.toString() + " }";
+	    };
+	};
+
+	var Triangle = function( a, b, c ) {
+	    this.a = a;
+	    this.b = b;
+	    this.c = c;
+
+	    this.degree = function() {
+		// Polyon clockwise/counterclockwise check:
+		// Build all SUM( (p[i+1].x-p[i].x) * (p[i+1].y+p[i].y) ) 
+		// Found at:
+		//    http://stackoverflow.com/questions/1165647/how-to-determine-if-a-list-of-polygon-points-are-in-clockwise-order
+		return ((this.b.x-this.a.x)*(this.b.y+this.a.y) + (this.c.x-this.b.x)*(this.c.y+this.b.y) + (this.a.x-this.c.x)*(this.a.y+this.c.y)>0);
+	    };
+	};
+
+	var border = 32;
+	var pointA = new Point( border + Math.random()*(canvasWidth-2*border),
+				border + Math.random()*(canvasHeight-2*border) );
+	var pointB = new Point( border + Math.random()*(canvasWidth-2*border),
+				border + Math.random()*(canvasHeight-2*border) );
+	var pointC = new Point( border + Math.random()*(canvasWidth-2*border),
+				border + Math.random()*(canvasHeight-2*border) );
+	var triangle = new Triangle( pointA, pointB, pointC );
+	// Polyon clockwise/counterclockwise check:
+	// Build all SUM( (p[i+1].x-p[i].x) * (p[i+1].y+p[i].y) ) 
+	// Found at:
+	//    http://stackoverflow.com/questions/1165647/how-to-determine-if-a-list-of-polygon-points-are-in-clockwise-order
+	//var clockwise = ((pointB.x-pointA.x)*(pointB.y+pointA.y) + (pointC.x-pointB.x)*(pointC.y+pointB.y) + (pointA.x-pointC.x)*(pointA.y+pointC.y)>0);
+	var clockwise = (triangle.degree() > 0);
+	
+	var lineAB = new Line( pointA, pointB );
+	var lineAC = new Line( pointA, pointC );
+	var lineBC = new Line( pointB, pointC );
+	var lineCA = new Line( pointC, pointA );
+
+	
+	var canvas = $( "#trisectionCanvas" );
+	var context = canvas[0].getContext( "2d" );
+	context.strokeStyle = "black";
+	context.font = "10px Arial";
+	context.fillText( "A", pointA.x, pointA.y );
+	context.fillText( "B", pointB.x, pointB.y );
+	context.fillText( "C", pointC.x, pointC.y );
+	lineAB.draw( context );
+	lineBC.draw( context );
+	lineCA.draw( context );
+	
+	var thetaAB     = lineAB.angle();
+	var thetaAC     = lineAC.angle();
+	var thetaCAB    = lineAB.angle( lineAC ); 
+	var insideAngle = thetaCAB;
+	if( clockwise )
+	    insideAngle = Math.PI-insideAngle;
+	console.debug( "thetaCAB=" + ((thetaCAB/(Math.PI*2))*360) + ", deg = " + thetaCAB + " rad, insideAngle=" + ((insideAngle/(Math.PI*2))*360) );
+	
+	// Draw angle
+	context.beginPath();
+	context.arc( pointA.x, pointA.y, 32, thetaAB, thetaAC, clockwise );
+	context.stroke();
+	
+
+    } ); // END init
+
+})(jQuery);
